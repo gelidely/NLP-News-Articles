@@ -1383,10 +1383,3 @@ for i, row in df_corpus[:5].iterrows():
 places = df_corpus[df_corpus['LOCATION'] != '']['LOCATION'].tolist()
 list(map(lambda x: print(x), collections.Counter(places).most_common(50)))
 
-
-
-x = {"a", "b", "c"}
-y = {"f", "d", "a"}
-z = {"c", "d", "e"}
-
-x.union(y, z)
