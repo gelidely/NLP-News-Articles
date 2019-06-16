@@ -1,0 +1,27 @@
+# Project Description
+
+Raw Articles Corpus 1: 116,101
+Raw Articles Corpus 2: 131,487
+Raw Articles Corpus 3: (Included in Corpus 1)
+Raw Articles Total: 247,588
+
+Unique Articles Corpus 1: 19,010
+Unique Articles Corpus 2: 131,487
+Unique Articles Corpus 3: 346
+Unique Articles Total: 150,846
+
+Date Range Corpus 1: 2000.08.07 - 2015.05.31
+Date Range Corpus 2: 2002.03.13 - 2019.01.30
+Date Range Corpus 3: 2000.08.01 - 2003.01.14
+Date Range Unique Total: 2000.08.01 - 2019.01.30
+
+Uncompressed Size of HTML Corpus 1: 589 MB
+Uncompressed Size of HTML Corpus 2: 643 MB
+Uncompressed Size of HTML Corpus 3: (Included in Corpus 1)
+Uncompressed Size of HTML Total: 1.2 GB
+
+Uncompressed Size of Cleaned Unique TXT Corpus 1: 76.5 MB
+Uncompressed Size of Cleaned Unique TXT Corpus 2: 535 MB
+Uncompressed Size of Cleaned Unique TXT Corpus 3: 1.9 MB
+Uncompressed Size of Cleaned Unique TXT Total: 613.4 MB
+

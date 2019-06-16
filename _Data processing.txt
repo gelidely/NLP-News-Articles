@@ -1,0 +1,13 @@
+# Data Processing Steps
+
+01/ Remove HTML tags and convert documents to plain text files.
+02/ Create metadata files, by extracting article ID, post date, and raw title (posted titles were created by the group moderator and include extra info about articles). 
+03/ Compare metadata files and use cosine similarity to detect and remove duplicate articles (text is normalized on the fly).
+04/ Combine unique articles from all corpora into single metadata file.
+05/ Remove special symbols (i.e., quoted post replies), advertising and signature text from bottom of articles.
+06/ Add cleaned title, location, article type, language, publisher/copyright, URLs to metadata files.
+07/ Determine if URLs from article are still live online in 2019.
+08/ Make bar charts, word clouds, etc. from most common terms, n-grams, metadata, etc.
+09/ Normalize text (i.e., remove punctuation and stopwords, casing, stemming and lemmatization, etc.)
+10/ Perform clustering using unsupervised learning to group articles.
+
