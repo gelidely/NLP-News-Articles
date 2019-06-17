@@ -605,6 +605,58 @@ class Utilities:
             with open(os.path.join(self.path_in, article), 'w', encoding='utf-8') as f:
                 f.writelines(txt)
 
+    def normalize_text(self):
+        # check what articles have already been saved to target folder and exclude from to-do articles list
+        articles_exist = [article for article in os.listdir(self.path_out) if article.endswith('.txt')]
+        articles = [article for article in os.listdir(self.path_in) if article.endswith('.txt') if article not in articles_exist]
+
+        stop_words_web = ['http', 'www', 'url', 'html', 'asp', 'php', 'cfm', 'com', 'net', 'org']
+        stop_words_en = stop_words_web + [term for term in stopwords.words('english')]
+        stop_words_es = stop_words_web + [term for term in stopwords.words('spanish')]
+
+        if not os.path.exists(self.path_out):
+            os.makedirs(self.path_out)
+
+        for article in articles:
+            print('Normalizing article:', article)
+
+            # reset article language
+            language = ''
+
+            try:
+                with open(os.path.join(self.path_in, article), 'r', encoding='utf-8') as f:
+                    txt = f.read()
+            except:
+                with open(os.path.join(self.path_in, article), 'r') as f:
+                    txt = f.read()
+
+            try:
+                language = lang.detect(txt)
+            except:
+                pass
+
+            txt = txt.lower()  # normalize to lowercase
+            txt = txt.replace('\n', ' ')  # remove new line breaks
+            txt = re.sub(r'[^a-z ]', ' ', txt)  # remove numbers and special symbols
+            txt = re.sub(r'\s+', ' ', txt)  # multiple spaces to single space
+
+            if language in ['en','es']:
+                # load stopwords according to detected language
+                if language == 'es':
+                    stop_words = stop_words_es
+                else:
+                    stop_words = stop_words_en
+
+                tokens = txt.split(' ')
+                for token in tokens:
+                    if token in stop_words or len(token) < 2:
+                        tokens = list(filter(lambda x: x != token, tokens))
+
+                txt = ' '.join(tokens)
+
+            with open(os.path.join(self.path_out, article), 'w', encoding='utf-8') as f:
+                f.write(txt)
+
     def replace_substr(self, old_substr, new_substr):
         articles = [article for article in os.listdir(self.path_in) if article.endswith('.txt')]
 
@@ -926,7 +978,7 @@ analyze_text_corpus_3_b.compare_texts(cos_thresh=0.94,
                                     skipped_terms=[])
 
 
-########################################### COMBINE ALL UNIQUE DOCS INTO SINGLE CORPUS ##########################################
+##################################### COMBINE ALL UNIQUE DOCS INTO SINGLE METADATA FILE ##########################################
 
 df_corpus_1 = pd.read_csv("D:/Data/corpus_1/metadata_unique.txt", sep='\t', dtype=str)
 df_corpus_2 = pd.read_csv("D:/Data/corpus_2/metadata.txt", sep='\t', dtype=str)
@@ -943,13 +995,27 @@ df_corpus['TYPE'] = ''
 df_corpus = df_corpus[['CORPUS', 'POSTID', 'TIMESTAMP', 'DATE', 'TITLE', 'LOCATION', 'TYPE']]
 
 
-########################################### CLEAN METADATA #####################################################################
+######################################### NORMALIZE AND REMOVE STOPWORDS ########################################################
+
+# corpus 1
+articles = Utilities(path_in="D:/Data/corpus_1/unique", path_out="D:/Data/corpus_1/unique_normalized")
+articles.normalize_text()
+
+# corpus 2
+articles = Utilities(path_in="D:/Data/corpus_2/txt", path_out="D:/Data/corpus_2/txt/txt_normalized")
+articles.normalize_text()
+
+# corpus 3
+articles = Utilities(path_in="D:/Data/corpus_3/unique_2", path_out="D:/Data/corpus_3/unique_2_normalized")
+articles.normalize_text()
+
+
+############################################### CLEAN METADATA FILES ############################################################
 
 temp_type = []
 temp_location = []
 temp_source = []
 
-#for i, row in df_corpus[9000:10000].iterrows():
 for i, row in df_corpus.iterrows():
     doc_type, doc_location, doc_source = '', '', ''
     doc_type_raw, doc_location_raw, doc_source_raw = '', '', ''
@@ -1352,29 +1418,34 @@ headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/5
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+# create output file with headers
+with open("D:/Data/corpus_common/corpus_tags_urls_TEST.tsv", 'w') as f:
+    f.write("CORPUS\tPOSTID\tSTATUS\tURL")
+
 # loop through articles
-for i, row in df_corpus[:5].iterrows():
+for i, row in df_corpus.iterrows():
     if row['URLS'] != '':
         for url in row['URLS'].split('|'):
             status = 'Unknown'
 
             try:
-                response = requests.get(url.strip(), headers=headers, timeout=5)
+                r = requests.get(url.strip(), headers=headers, timeout=5)
 
-                if response.status_code == 404:
+                if r.status_code == 404:
                     status = 'Not Found'
-                elif response.status_code == 403:
+                elif r.status_code == 403:
                     status = 'Forbidden'
-                elif response.status_code == 200:
-                    if row['TITLE_CLEAN'].upper() in response.text.upper():
+                elif r.status_code == 200:
+                    if row['TITLE_CLEAN'].upper() in r.text.upper():
                         status = 'Confirmed'
             except:
                 status = 'Invalid'
 
-            print(row['POSTID'], status, url.strip())
+            print(row['CORPUS'], row['POSTID'], status, url.strip())
 
-    with open("D:/Data/corpus_common/corpus_tags_urls.tsv", 'a') as f:
-        f.write(f"\n{row['POSTID']}\t{status}\t{url.strip()}")
+        # append to output file
+        with open("D:/Data/corpus_common/corpus_tags_urls_TEST.tsv", 'a') as f:
+            f.write(f"\n{row['CORPUS']}\t{row['POSTID']}\t{status}\t{url.strip()}")
 
 
 ################################################ DESCRIPTIVE STATISTICS ###################################################
@@ -1382,4 +1453,3 @@ for i, row in df_corpus[:5].iterrows():
 # most common places
 places = df_corpus[df_corpus['LOCATION'] != '']['LOCATION'].tolist()
 list(map(lambda x: print(x), collections.Counter(places).most_common(50)))
-
