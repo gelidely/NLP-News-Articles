@@ -7,14 +7,22 @@ import shutil
 import nltk
 import math
 import collections
+import winsound
 import time
 import json
 import bs4 as bs
+import numpy as np
 import pandas as pd
 import langdetect as lang
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
 from nltk.corpus import stopwords
+from nltk.stem.porter import PorterStemmer
+from nltk.stem.wordnet import WordNetLemmatizer
 from datetime import datetime
 from selenium import webdriver
+from sklearn.cluster import KMeans
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 class CollectPosts:
@@ -606,6 +614,9 @@ class Utilities:
                 f.writelines(txt)
 
     def normalize_text(self):
+        if not os.path.exists(self.path_out):
+            os.makedirs(self.path_out)
+
         # check what articles have already been saved to target folder and exclude from to-do articles list
         articles_exist = [article for article in os.listdir(self.path_out) if article.endswith('.txt')]
         articles = [article for article in os.listdir(self.path_in) if article.endswith('.txt') if article not in articles_exist]
@@ -613,9 +624,6 @@ class Utilities:
         stop_words_web = ['http', 'www', 'url', 'html', 'asp', 'php', 'cfm', 'com', 'net', 'org']
         stop_words_en = stop_words_web + [term for term in stopwords.words('english')]
         stop_words_es = stop_words_web + [term for term in stopwords.words('spanish')]
-
-        if not os.path.exists(self.path_out):
-            os.makedirs(self.path_out)
 
         for article in articles:
             print('Normalizing article:', article)
@@ -653,6 +661,84 @@ class Utilities:
                         tokens = list(filter(lambda x: x != token, tokens))
 
                 txt = ' '.join(tokens)
+
+            with open(os.path.join(self.path_out, article), 'w', encoding='utf-8') as f:
+                f.write(txt)
+
+    def stemming_text(self):
+        if not os.path.exists(self.path_out):
+            os.makedirs(self.path_out)
+
+        # check what articles have already been saved to target folder and exclude from to-do articles list
+        articles_exist = [article for article in os.listdir(self.path_out) if article.endswith('.txt')]
+        articles = [article for article in os.listdir(self.path_in) if article.endswith('.txt') if article not in articles_exist]
+
+        porter = PorterStemmer()
+
+        for article in articles:
+            print('Stemming article:', article)
+
+            # reset article language
+            language = ''
+
+            try:
+                with open(os.path.join(self.path_in, article), 'r', encoding='utf-8') as f:
+                    txt = f.read()
+            except:
+                with open(os.path.join(self.path_in, article), 'r') as f:
+                    txt = f.read()
+
+            try:
+                language = lang.detect(txt)
+            except:
+                pass
+
+            if language == 'en':
+                with open(os.path.join(self.path_in, article), 'r') as f:
+                    tokens = f.read().split(' ')
+
+                stemmed_txt = [porter.stem(word) for word in tokens]
+
+                txt = ' '.join(stemmed_txt)
+
+            with open(os.path.join(self.path_out, article), 'w', encoding='utf-8') as f:
+                f.write(txt)
+
+    def lemmatize_text(self):
+        if not os.path.exists(self.path_out):
+            os.makedirs(self.path_out)
+
+        # check what articles have already been saved to target folder and exclude from to-do articles list
+        articles_exist = [article for article in os.listdir(self.path_out) if article.endswith('.txt')]
+        articles = [article for article in os.listdir(self.path_in) if article.endswith('.txt') if article not in articles_exist]
+
+        lemma = WordNetLemmatizer()
+
+        for article in articles:
+            print('Lemmatizing article:', article)
+
+            # reset article language
+            language = ''
+
+            try:
+                with open(os.path.join(self.path_in, article), 'r', encoding='utf-8') as f:
+                    txt = f.read()
+            except:
+                with open(os.path.join(self.path_in, article), 'r') as f:
+                    txt = f.read()
+
+            try:
+                language = lang.detect(txt)
+            except:
+                pass
+
+            if language == 'en':
+                with open(os.path.join(self.path_in, article), 'r') as f:
+                    tokens = f.read().split(' ')
+
+                lemmatized_txt = [lemma.lemmatize(word) for word in tokens]
+
+                txt = ' '.join(lemmatized_txt)
 
             with open(os.path.join(self.path_out, article), 'w', encoding='utf-8') as f:
                 f.write(txt)
@@ -849,6 +935,66 @@ class Utilities:
         df.to_csv(path_out, sep='\t', index=None)
 
 
+# Visualization functions
+
+def plot_barchart(xdata, ydata, title, xlabel, ylabel, width, opacity, color):
+    index = np.arange(len(xdata))  # x-axis locations
+    fig, ax = plt.subplots()
+    rects1 = plt.bar(index, ydata, width, alpha=opacity, color=color, label=xlabel)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.xticks(index, years)
+    # plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+# machine learning functions
+
+def find_optimal_clusters(num_clusters, features):
+    # Check best number of clusters
+    # n_clusters = number of clusters that k-means produces that is its hyperparameter
+    wss = []
+    t0 = time.time()
+
+    for k in range(2, num_clusters + 1):
+        print(k)
+        model = KMeans(n_clusters=k, random_state=42, n_jobs=-1)
+        model.fit(features)
+        wss.append(-model.score(features))
+
+    t1 = time.time()
+    print("...Completed in", round(t1 - t0, 2), "seconds")
+    winsound.Beep(500, 300)  # freqency, millisecs
+
+    plt.scatter(range(2, num_clusters + 1), wss)
+
+
+def predict_k_means_clusters(num_clusters, features):
+    model = KMeans(n_clusters=num_clusters, random_state=42, n_jobs=-1)
+    model.fit(features)
+    return model.predict(features)
+
+
+def cluster_word_count(txt, pred_clusters, cluster_index):
+    cluster_txt = np.array(txt)[pred_clusters == cluster_index]
+    wordcount = nltk.FreqDist(nltk.tokenize.word_tokenize(' '.join(cluster_txt)))
+    return wordcount
+
+
+def corpus_txt(path_in):
+    files = [file for file in os.listdir(path_in) if file.endswith('.txt')]
+    articles = []
+
+    for file in files:
+        print(path_in, file)
+        with open(os.path.join(path_in, file), 'r') as f:
+            txt = f.read()
+        articles.append(txt)
+
+    return articles
+
 ########################################### PROCESS POSTS FROM CORPORA 1 AND 2 #####################################
 
 # Collect posts from Yahoo Groups
@@ -1008,6 +1154,36 @@ articles.normalize_text()
 # corpus 3
 articles = Utilities(path_in="D:/Data/corpus_3/unique_2", path_out="D:/Data/corpus_3/unique_2_normalized")
 articles.normalize_text()
+
+
+############################################### ARTICLE STEMMING ################################################################
+
+# corpus 1
+articles = Utilities(path_in="D:/Data/corpus_1/unique_normalized", path_out="D:/Data/corpus_1/unique_stemmed")
+articles.stemming_text()
+
+# corpus 2
+articles = Utilities(path_in="D:/Data/corpus_2/txt_normalized", path_out="D:/Data/corpus_2/txt_stemmed")
+articles.stemming_text()
+
+# corpus 3
+articles = Utilities(path_in="D:/Data/corpus_3/unique_2_normalized", path_out="D:/Data/corpus_3/unique_2_stemmed")
+articles.stemming_text()
+
+
+############################################# ARTICLE LEMMATIZATION #############################################################
+
+# corpus 1
+articles = Utilities(path_in="D:/Data/corpus_1/unique_normalized", path_out="D:/Data/corpus_1/unique_lemmatized")
+articles.lemmatize_text()
+
+# corpus 2
+articles = Utilities(path_in="D:/Data/corpus_2/txt_normalized", path_out="D:/Data/corpus_2/txt_lemmatized")
+articles.lemmatize_text()
+
+# corpus 3
+articles = Utilities(path_in="D:/Data/corpus_3/unique_2_normalized", path_out="D:/Data/corpus_3/unique_2_lemmatized")
+articles.lemmatize_text()
 
 
 ############################################### CLEAN METADATA FILES ############################################################
@@ -1419,8 +1595,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 # create output file with headers
-with open("D:/Data/corpus_common/corpus_tags_urls_TEST.tsv", 'w') as f:
-    f.write("CORPUS\tPOSTID\tSTATUS\tURL")
+with open("D:/Data/corpus_common/corpus_tags_urls.tsv", 'w') as f:
+    f.write("CORPUS\tPOSTID\tSTATUS\tURL\n")
 
 # loop through articles
 for i, row in df_corpus.iterrows():
@@ -1443,13 +1619,176 @@ for i, row in df_corpus.iterrows():
 
             print(row['CORPUS'], row['POSTID'], status, url.strip())
 
-        # append to output file
-        with open("D:/Data/corpus_common/corpus_tags_urls_TEST.tsv", 'a') as f:
-            f.write(f"\n{row['CORPUS']}\t{row['POSTID']}\t{status}\t{url.strip()}")
+            # append to output file
+            with open("D:/Data/corpus_common/corpus_tags_urls.tsv", 'a') as f:
+                f.write(f"{row['CORPUS']}\t{row['POSTID']}\t{status}\t{url.strip()}\n")
 
 
 ################################################ DESCRIPTIVE STATISTICS ###################################################
 
-# most common places
+# read metadata file (if previously saved)
+df_corpus = pd.read_csv("D:/Data/corpus_common/corpus_tags.csv", sep=',', dtype=str, na_filter=False)
+
+# stopwords
+stop_words = [term for term in stopwords.words('english')]
+stop_words.extend(['re','fw'])
+stop_words.remove('same')  # remove 'same' so "same sex" bigrams are not exluded
+
+# read states file
+states_raw = json.load(open("D:/Data/corpus_common/states.json"))
+states_extended = ['DC','PR']
+states_raw = [state for state in states_raw.keys()] + states_extended
+
+# get raw places
 places = df_corpus[df_corpus['LOCATION'] != '']['LOCATION'].tolist()
-list(map(lambda x: print(x), collections.Counter(places).most_common(50)))
+places = ' '.join(places).replace('|', ' ').replace(',', ' ')
+places = places.split(' ')
+
+# most common countries
+countries = [country for country in places if country not in states_raw]  # excludes any matches with US states
+list(map(lambda x: print(x), collections.Counter(countries).most_common(50)))
+
+# most common states
+states = [state for state in places if state in states_raw]  # excludes any matches with US states
+list(map(lambda x: print(x), collections.Counter(states).most_common()))
+
+# most common languages
+languages = df_corpus['LANG'].tolist()
+list(map(lambda x: print(x), collections.Counter(languages).most_common()))
+
+# url's status
+df_urls = pd.read_csv("D:/Data/corpus_common/corpus_tags_urls.tsv", sep='\t', dtype=str)
+list(map(lambda x: print(x), collections.Counter(df_urls['STATUS'].tolist()).most_common()))
+
+# prepare titles for analysis
+titles = df_corpus[df_corpus['LANG'] == 'en']['TITLE_CLEAN'].tolist()
+titles = [title.lower() for title in titles]
+titles = [re.sub(r'[^a-z]', ' ', title) for title in titles]
+titles = [' '.join([term for term in title.split(' ') if term not in stop_words and len(term) > 1]) for title in titles]
+titles = [re.sub(r'\s+', ' ', item) for item in titles]
+
+# most common words from titles (English only)
+tokens_titles = [title for title in ' '.join(titles).split(' ')]
+list(map(lambda x: print(x), collections.Counter(tokens_titles).most_common(50)))
+
+# wordcloud of most common words in titles
+wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations = False, max_words=100)
+wc.generate(' '.join(titles))
+plt.imshow(wc)
+
+
+# most common words in whole corpus (only if not previously saved to file, takes a few hours to complete BoW for full corpus)
+
+# list of lematized texts of whole corpus
+txt_corpus_1 = corpus_txt("D:/Data/corpus_1/unique_lemmatized")
+txt_corpus_2 = corpus_txt("D:/Data/corpus_2/txt_lemmatized")
+txt_corpus_3 = corpus_txt("D:/Data/corpus_3/unique_2_lemmatized")
+txt_corpus = txt_corpus_1 + txt_corpus_2 + txt_corpus_3
+
+# bag of words of whole corpus
+bags_of_words = [collections.Counter(txt.split(' ')) for txt in txt_corpus]
+bow_corpus = sum(bags_of_words, collections.Counter())
+
+# most common words
+list(map(lambda x: print(x), bow_corpus.most_common(50)))
+
+# format and save as JSON file sorted by most_common
+with open("D:/Data/corpus_common/bag_of_words.txt", 'w') as f:
+    print('Writing to disk as JSON file...')
+    f.write('{\n')
+    for item in bow_corpus.most_common()[:-1]:
+        f.write(f'\t"{item[0]}": "{item[1]}",\n')
+    f.write(f'\t"{bow_corpus.most_common()[-1][0]}": "{bow_corpus.most_common()[-1][1]}"\n}}')
+    print('Writing completed.')
+
+
+# most common words in whole corpus (if reading previously saved file)
+
+# read JSON
+bow = json.load(open("D:/Data/corpus_common/bag_of_words.txt"))
+
+# most common words
+list(map(lambda x: print(x), list(bow.items())[:50]))
+
+
+
+# distribution of articles by year
+dates = [date[:4] for date in df_corpus['DATE'].tolist()]
+dates_count = sorted(collections.Counter(dates).items())
+years, freq = zip(*dates_count)
+plot_barchart(years, freq, 'Articles by Year', xlabel='Year', ylabel='Frequency', width=0.9, opacity=1, color='steelblue')
+list(map(lambda x: print(x), dates_count))
+
+
+# plot most common words from articles
+term, freq = zip(*list(bow.items())[:20])
+plot_barchart(years, freq, 'Most Common Words', xlabel='Year', ylabel='Frequency', width=0.9, opacity=1, color='steelblue')
+
+# wordcloud of most common words in full corpus
+wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations = False, max_words=100)
+wc.generate(' '.join(txt_corpus))
+plt.imshow(wc)
+
+
+
+
+
+################################################# K-MEANS CLUSTERING TITLES ##################################################
+
+# stopwords
+stop_words = [term for term in stopwords.words('english')]
+stop_words.extend(['re','fw'])
+stop_words.remove('same')  # remove 'same' so "same sex" bigrams are not exluded
+
+# prepare titles
+titles = df_corpus[df_corpus['LANG'] == 'en']['TITLE_CLEAN'].tolist()
+titles = [title.lower() for title in titles]
+titles = [re.sub(r'[^a-z]', ' ', title) for title in titles]
+titles = [' '.join([term for term in title.split(' ') if term not in stop_words and len(term) > 1]) for title in titles]
+titles = [re.sub(r'\s+', ' ', item) for item in titles]
+
+# vectorization
+vectorizer = TfidfVectorizer(min_df=2)
+features = vectorizer.fit_transform(titles)
+type(features)
+print(features.shape)
+
+# find elbow point in graph to determine optimal number of clusters
+find_optimal_clusters(num_clusters=30, features=features)
+
+# reduce the number of clusters from 30 to just 5, since no significant elbow was shown to happen
+pred_clusters = predict_k_means_clusters(num_clusters=5, features=features)
+
+# words by cluster, sorted by most common
+cluster_1 = cluster_word_count(titles, pred_clusters, 0)
+cluster_2 = cluster_word_count(titles, pred_clusters, 1)
+cluster_3 = cluster_word_count(titles, pred_clusters, 2)
+cluster_4 = cluster_word_count(titles, pred_clusters, 3)
+cluster_5 = cluster_word_count(titles, pred_clusters, 4)
+
+# most common words by cluster
+top_n = 10
+list(map(lambda x: print(x), cluster_1.most_common(top_n)))
+list(map(lambda x: print(x), cluster_2.most_common(top_n)))
+list(map(lambda x: print(x), cluster_3.most_common(top_n)))
+list(map(lambda x: print(x), cluster_4.most_common(top_n)))
+list(map(lambda x: print(x), cluster_5.most_common(top_n)))
+
+
+
+################################################# K-MEANS CLUSTERING ARTICLES ##################################################
+
+# list of lematized texts of whole corpus
+txt_corpus_1 = corpus_txt("D:/Data/corpus_1/unique_lemmatized")
+txt_corpus_2 = corpus_txt("D:/Data/corpus_2/txt_lemmatized")
+txt_corpus_3 = corpus_txt("D:/Data/corpus_3/unique_2_lemmatized")
+txt_corpus = txt_corpus_1 + txt_corpus_2 + txt_corpus_3
+
+# vectorization
+vectorizer = TfidfVectorizer(min_df=2)
+features = vectorizer.fit_transform(txt_corpus)
+type(features)
+print(features.shape)
+
+# find elbow point in graph to determine optimal number of clusters
+find_optimal_clusters(num_clusters=15, features=features)
