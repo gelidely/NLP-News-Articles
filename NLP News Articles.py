@@ -949,31 +949,46 @@ def plot_barchart(xdata, ydata, title, xlabel, ylabel, width, opacity, color):
     plt.tight_layout()
     plt.show()
 
+def plot_wordcloud(words, freq=False):
+    wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations=False, max_words=50)
+    if freq:
+        wc.generate_from_frequencies(words)
+    else:
+        wc.generate(' '.join(words))
+    plt.axis('off')
+    plt.imshow(wc)
+
 
 # machine learning functions
 
 def find_optimal_clusters(num_clusters, features):
     # Check best number of clusters
     # n_clusters = number of clusters that k-means produces that is its hyperparameter
-    wss = []
+    wss = []  # within-cluster sum of squares
     t0 = time.time()
 
+    print('Starting process, will run', num_clusters, 'clusters...')
     for k in range(2, num_clusters + 1):
-        print(k)
         model = KMeans(n_clusters=k, random_state=42, n_jobs=-1)
         model.fit(features)
         wss.append(-model.score(features))
+        print('Clusters:', k, ' |  Elapsed time:', round(time.time() - t0, 2), 'seconds')
 
-    t1 = time.time()
-    print("...Completed in", round(t1 - t0, 2), "seconds")
+    print('...Completed in', round(time.time() - t0, 2), 'seconds')
     winsound.Beep(500, 300)  # freqency, millisecs
 
     plt.scatter(range(2, num_clusters + 1), wss)
 
 
 def predict_k_means_clusters(num_clusters, features):
+    t0 = time.time()
+
+    print('Starting predictions for', num_clusters, 'clusters...')
     model = KMeans(n_clusters=num_clusters, random_state=42, n_jobs=-1)
     model.fit(features)
+    print('...Predictions completed in', round(time.time() - t0, 2), 'seconds')
+    winsound.Beep(500, 300)  # freqency, millisecs
+
     return model.predict(features)
 
 
@@ -994,6 +1009,7 @@ def corpus_txt(path_in):
         articles.append(txt)
 
     return articles
+
 
 ########################################### PROCESS POSTS FROM CORPORA 1 AND 2 #####################################
 
@@ -1038,7 +1054,8 @@ cut_points = ['Kindly appreciate that Brenda',
               'Download Yahoo! Messenger now',
               '------------------------ Yahoo! Groups Sponsor',
               'Do You Yahoo',
-              'Gesendet von Yahoo'
+              'Gesendet von Yahoo',
+              'Chat with friends online'
               ]
 
 # corpus 1
@@ -1186,8 +1203,7 @@ articles = Utilities(path_in="D:/Data/corpus_3/unique_2_normalized", path_out="D
 articles.lemmatize_text()
 
 
-############################################### CLEAN METADATA FILES ############################################################
-
+################################## DETECT AND TAG ARTICLES BY PLACE AND TYPE (PART 1) ################################################
 temp_type = []
 temp_location = []
 temp_source = []
@@ -1326,8 +1342,7 @@ with open("D:/Data/corpus_common/labels_types.json", 'w') as j:
     json.dump(labels_types, j, indent=1)
 
 
-
-################################### DETECT AND TAG ARTICLES BY PLACE AND TYPE ###############################################################
+################################## DETECT AND TAG ARTICLES BY PLACE AND TYPE (PART 2) ################################################
 
 # load manually-edited labels files
 labels_places = json.load(open("D:/Data/corpus_common/labels_places.json"))
@@ -1646,11 +1661,11 @@ places = places.split(' ')
 
 # most common countries
 countries = [country for country in places if country not in states_raw]  # excludes any matches with US states
-list(map(lambda x: print(x), collections.Counter(countries).most_common(50)))
+list(map(lambda x: print(x), collections.Counter(countries).most_common(20)))
 
 # most common states
 states = [state for state in places if state in states_raw]  # excludes any matches with US states
-list(map(lambda x: print(x), collections.Counter(states).most_common()))
+list(map(lambda x: print(x), collections.Counter(states).most_common(20)))
 
 # most common languages
 languages = df_corpus['LANG'].tolist()
@@ -1660,6 +1675,13 @@ list(map(lambda x: print(x), collections.Counter(languages).most_common()))
 df_urls = pd.read_csv("D:/Data/corpus_common/corpus_tags_urls.tsv", sep='\t', dtype=str)
 list(map(lambda x: print(x), collections.Counter(df_urls['STATUS'].tolist()).most_common()))
 
+# distribution of articles by year
+dates = [date[:4] for date in df_corpus['DATE'].tolist()]
+dates_count = sorted(collections.Counter(dates).items())
+years, freq = zip(*dates_count)
+plot_barchart(years, freq, 'Articles by Year', xlabel='Year', ylabel='Frequency', width=0.9, opacity=1, color='steelblue')
+list(map(lambda x: print(x), dates_count))
+
 # prepare titles for analysis
 titles = df_corpus[df_corpus['LANG'] == 'en']['TITLE_CLEAN'].tolist()
 titles = [title.lower() for title in titles]
@@ -1667,17 +1689,17 @@ titles = [re.sub(r'[^a-z]', ' ', title) for title in titles]
 titles = [' '.join([term for term in title.split(' ') if term not in stop_words and len(term) > 1]) for title in titles]
 titles = [re.sub(r'\s+', ' ', item) for item in titles]
 
-# most common words from titles (English only)
-tokens_titles = [title for title in ' '.join(titles).split(' ')]
-list(map(lambda x: print(x), collections.Counter(tokens_titles).most_common(50)))
-
-# wordcloud of most common words in titles
+# wordcloud from titles
 wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations = False, max_words=100)
 wc.generate(' '.join(titles))
 plt.imshow(wc)
 
+# most common words from titles (English only)
+tokens_titles = [title for title in ' '.join(titles).split(' ')]
+list(map(lambda x: print(x), collections.Counter(tokens_titles).most_common(20)))
 
-# most common words in whole corpus (only if not previously saved to file, takes a few hours to complete BoW for full corpus)
+
+# ----------- OPTION 1: most common words in whole corpus (takes a few hours to process, read JSON file in option 2 below if already saved to disk) -----------
 
 # list of lematized texts of whole corpus
 txt_corpus_1 = corpus_txt("D:/Data/corpus_1/unique_lemmatized")
@@ -1685,12 +1707,17 @@ txt_corpus_2 = corpus_txt("D:/Data/corpus_2/txt_lemmatized")
 txt_corpus_3 = corpus_txt("D:/Data/corpus_3/unique_2_lemmatized")
 txt_corpus = txt_corpus_1 + txt_corpus_2 + txt_corpus_3
 
-# bag of words of whole corpus
-bags_of_words = [collections.Counter(txt.split(' ')) for txt in txt_corpus]
-bow_corpus = sum(bags_of_words, collections.Counter())
+# wordcloud from articles
+wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations = False, max_words=100)
+wc.generate(' '.join(txt_corpus))
+plt.imshow(wc)
 
-# most common words
-list(map(lambda x: print(x), bow_corpus.most_common(50)))
+# bag of words from articles
+bags_of_words = [collections.Counter(txt.split(' ')) for txt in txt_corpus]
+bow_corpus = sum(bags_of_words, collections.Counter())  # this is the step that takes a few hours to complete
+
+# most common words from articles
+list(map(lambda x: print(x), bow_corpus.most_common(20)))
 
 # format and save as JSON file sorted by most_common
 with open("D:/Data/corpus_common/bag_of_words.txt", 'w') as f:
@@ -1701,36 +1728,13 @@ with open("D:/Data/corpus_common/bag_of_words.txt", 'w') as f:
     f.write(f'\t"{bow_corpus.most_common()[-1][0]}": "{bow_corpus.most_common()[-1][1]}"\n}}')
     print('Writing completed.')
 
-
-# most common words in whole corpus (if reading previously saved file)
+# ------------ OPTION 2: most common words in whole corpus (if reading previously saved file) -----------
 
 # read JSON
 bow = json.load(open("D:/Data/corpus_common/bag_of_words.txt"))
 
 # most common words
-list(map(lambda x: print(x), list(bow.items())[:50]))
-
-
-
-# distribution of articles by year
-dates = [date[:4] for date in df_corpus['DATE'].tolist()]
-dates_count = sorted(collections.Counter(dates).items())
-years, freq = zip(*dates_count)
-plot_barchart(years, freq, 'Articles by Year', xlabel='Year', ylabel='Frequency', width=0.9, opacity=1, color='steelblue')
-list(map(lambda x: print(x), dates_count))
-
-
-# plot most common words from articles
-term, freq = zip(*list(bow.items())[:20])
-plot_barchart(years, freq, 'Most Common Words', xlabel='Year', ylabel='Frequency', width=0.9, opacity=1, color='steelblue')
-
-# wordcloud of most common words in full corpus
-wc = WordCloud(width=1600, height=1200, background_color='#ffffff', collocations = False, max_words=100)
-wc.generate(' '.join(txt_corpus))
-plt.imshow(wc)
-
-
-
+list(map(lambda x: print(x), list(bow.items())[:20]))
 
 
 ################################################# K-MEANS CLUSTERING TITLES ##################################################
@@ -1738,7 +1742,7 @@ plt.imshow(wc)
 # stopwords
 stop_words = [term for term in stopwords.words('english')]
 stop_words.extend(['re','fw'])
-stop_words.remove('same')  # remove 'same' so "same sex" bigrams are not exluded
+stop_words.remove('same')  # remove 'same' so "same sex" bigrams are not exluded (future development, bigrams not available in current stage)
 
 # prepare titles
 titles = df_corpus[df_corpus['LANG'] == 'en']['TITLE_CLEAN'].tolist()
@@ -1748,16 +1752,16 @@ titles = [' '.join([term for term in title.split(' ') if term not in stop_words 
 titles = [re.sub(r'\s+', ' ', item) for item in titles]
 
 # vectorization
-vectorizer = TfidfVectorizer(min_df=2)
-features = vectorizer.fit_transform(titles)
-type(features)
-print(features.shape)
+tfidf = TfidfVectorizer(min_df=2)  # ignore terms that appear in less than 2 documents (min doc freq)
+matrix = tfidf.fit_transform(titles)
+type(matrix)
+print(matrix.shape)
 
 # find elbow point in graph to determine optimal number of clusters
-find_optimal_clusters(num_clusters=30, features=features)
+find_optimal_clusters(num_clusters=30, features=matrix)
 
-# reduce the number of clusters from 30 to just 5, since no significant elbow was shown to happen
-pred_clusters = predict_k_means_clusters(num_clusters=5, features=features)
+# reduce the number of clusters to 5, since no significant elbow was shown to happen
+pred_clusters = predict_k_means_clusters(num_clusters=5, features=matrix)
 
 # words by cluster, sorted by most common
 cluster_1 = cluster_word_count(titles, pred_clusters, 0)
@@ -1785,10 +1789,45 @@ txt_corpus_3 = corpus_txt("D:/Data/corpus_3/unique_2_lemmatized")
 txt_corpus = txt_corpus_1 + txt_corpus_2 + txt_corpus_3
 
 # vectorization
-vectorizer = TfidfVectorizer(min_df=2)
-features = vectorizer.fit_transform(txt_corpus)
-type(features)
-print(features.shape)
+tfidf = TfidfVectorizer(min_df=0.1, max_df=0.3)  # ignore terms that appear in less than 10% and more than 30% of documents
+matrix = tfidf.fit_transform(txt_corpus)
+print(matrix.shape)
+list(map(lambda x: print(x), tfidf.get_feature_names()))
 
 # find elbow point in graph to determine optimal number of clusters
-find_optimal_clusters(num_clusters=15, features=features)
+find_optimal_clusters(num_clusters=50, features=matrix)
+
+# for prediction reduce number of clusters to 15
+pred_clusters = predict_k_means_clusters(num_clusters=15, features=matrix)
+
+# words by cluster sorted by most common
+cluster_1 = cluster_word_count(txt_corpus, pred_clusters, 0)
+cluster_2 = cluster_word_count(txt_corpus, pred_clusters, 1)
+cluster_3 = cluster_word_count(txt_corpus, pred_clusters, 2)
+cluster_4 = cluster_word_count(txt_corpus, pred_clusters, 3)
+cluster_5 = cluster_word_count(txt_corpus, pred_clusters, 4)
+cluster_6 = cluster_word_count(txt_corpus, pred_clusters, 5)
+cluster_7 = cluster_word_count(txt_corpus, pred_clusters, 6)
+cluster_8 = cluster_word_count(txt_corpus, pred_clusters, 7)
+cluster_9 = cluster_word_count(txt_corpus, pred_clusters, 8)
+cluster_10 = cluster_word_count(txt_corpus, pred_clusters, 9)
+cluster_11 = cluster_word_count(txt_corpus, pred_clusters, 10)
+cluster_12 = cluster_word_count(txt_corpus, pred_clusters, 11)
+cluster_13 = cluster_word_count(txt_corpus, pred_clusters, 12)
+cluster_14 = cluster_word_count(txt_corpus, pred_clusters, 13)
+cluster_15 = cluster_word_count(txt_corpus, pred_clusters, 14)
+
+# wordclouds
+plot_wordcloud(cluster_1, freq=True)
+plot_wordcloud(cluster_2, freq=True)
+plot_wordcloud(cluster_3, freq=True)
+plot_wordcloud(cluster_4, freq=True)
+plot_wordcloud(cluster_5, freq=True)
+plot_wordcloud(cluster_7, freq=True)
+plot_wordcloud(cluster_8, freq=True)
+plot_wordcloud(cluster_9, freq=True)
+plot_wordcloud(cluster_11, freq=True)
+plot_wordcloud(cluster_12, freq=True)
+plot_wordcloud(cluster_13, freq=True)
+plot_wordcloud(cluster_14, freq=True)
+plot_wordcloud(cluster_15, freq=True)
