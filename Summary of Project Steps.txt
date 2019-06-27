@@ -1,0 +1,20 @@
+# Summary of Project Steps
+
+01 - Web scrape articles from newsgroups.
+02 - Create metadata files for each corpus containing id, corpus, date, and title.
+03 - Identify and remove duplicated articles.
+04 - Clean articles text (i.e., remove newsgroup signature, advertising, etc.)
+05 - Extract and clean a mini-corpus (Corpus 3) contained in Corpus 1.
+06 - Combine all metadata files into a single file.
+07 - Normalize text (lowercase) and remove stopwords. 
+08 - Perform stemming and lemmatization.
+09 - Extract information about place and article type from title field in metadata file.
+10 - Get state name if extracted location is the USA.
+11 - Extract headlines from newsgroup titles.
+12 - Detect article language.
+13 - Extract URLs from article text.
+14 - Extract publisher and/or copyright information from article text.
+15 - Detect URLs that are still active online as originally referenced.
+16 - Perform descriptive statistics and create visualizations.
+17 - Perform K-Means clustering using titles.
+18 - Perform K-Means clustering using the normalized lemmatized articles.

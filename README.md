@@ -5,6 +5,8 @@ The articles were downloaded, with permission of the admin/owner who manages bot
 
 Corpus 1 was started in mid-2000 and was closed by the moderator in 2015. Corpus 2 went live in early 2002 and, in January 2019, the moderator stopped adding new content. During the initial data exploration, a third corpus (Corpus 3) was discovered embedded in Corpus 1, so it had to be separated and the data cleaned.
 
-The first step is to remove all article duplicates, caused by cross-posting and then create a single corpus for analysis beased on the unique articles. All articles were dowloaded in HTML format, and extensive cleaning was applied in order to extract the useful information. From the information extracted from each article, various tags were created for future classification. Techniques in Natural Language Processing (NLP) are used, and clustering is performed using unsupervised machine learning. 
+The first step is to remove all article duplicates, caused by cross-posting and then create a single corpus for analysis beased on the unique articles. All articles were dowloaded in HTML format, and extensive cleaning was applied in order to extract the useful information. From the information extracted from each article, various tags were created for future classification. Techniques in Natural Language Processing (NLP) are used, and clustering is performed using unsupervised machine learning (K-Means clustering). 
 
-Please note that until copyright issues are cleared legally, the original articles will not be available for public access. Howvever, I can point researchers and institutions to the original and secondary sources, if contacted directly. 
+For more detailed information about the flow of this project, see the file named Summary of Project Steps.
+
+Once copyright issues are cleared legally, the original articles will be made available for public access. Howvever, I can point researchers and institutions to data sources, if contacted directly. 
