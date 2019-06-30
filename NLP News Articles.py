@@ -69,7 +69,7 @@ class CollectPosts:
 
         return session
 
-    def login_session_yahoo(self, usr, pwd):
+    def login_session_yahoo(self):
         url = 'https://login.yahoo.com'
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument("--disable-popup-blocking")
@@ -79,21 +79,23 @@ class CollectPosts:
         browser.get(url)
 
         # enter username and proceed to next step
-        browser.find_element_by_id("login-username").send_keys(usr)
+        browser.find_element_by_id("login-username").send_keys(self.usr)
         browser.find_element_by_id("login-signin").click()
 
-        time.sleep(1)
+        time.sleep(5)  # may need manual clicking to login
 
         # enter password and login
-        browser.find_element_by_name("password").send_keys(pwd)
+        browser.find_element_by_name("password").send_keys(self.pwd)
         browser.find_element_by_id("login-signin").click()
+
+        time.sleep(5)  # may need manual clicking to login
 
         return browser
 
     def groupsio(self, path_out):
         session = self.login_session_groupsio()
 
-        for i in range(self.id_start, self.id_end+1):
+        for i in range(self.id_start, self.id_end + 1):
             try:
                 # [BeautifulSoup] parse html
                 page = session.get(self.url + str(i))
@@ -149,14 +151,13 @@ class CollectPosts:
                 print(str(i) + '... EMPTY')
                 pass
 
-    def yahoogroups(self, path_out):
-        browser = self.login_session_yahoo(self.usr, self.pwd)
+    def yahoogroups(self, path_out, first_year_in_range):
+        browser = self.login_session_yahoo()
         flag = False  # used for catching date format exceptions
-        year = '2015'  # year of first post in specified range, used if year not explicit on first post
+        year = first_year_in_range  # year of first post in specified post ID range (required when year not given on first post)
 
-        for i in range(self.id_start, self.id_end):
+        for i in range(self.id_start, self.id_end + 1):
             try:
-                # browser.get(pathURL + str(i) + '.html')  # path for local cached file
                 browser.get(self.url + str(i))
                 page = browser.page_source
                 soup = bs.BeautifulSoup(page, 'html.parser')
@@ -171,7 +172,10 @@ class CollectPosts:
                         flag = False
                 except Exception:
                     date = year + " " + date
-                    timestamp = str(int(time.mktime(datetime.strptime(date, "%Y %b %d %H:%M %p").timetuple())))
+                    try:
+                        timestamp = str(int(time.mktime(datetime.strptime(date, "%Y %b %d %H:%M %p").timetuple())))
+                    except Exception:
+                        timestamp = str(int(time.mktime(datetime.strptime(date, "%Y %b %d").timetuple())))
 
                     if not self.sandbox:
                         # save exceptions into log file for further year verification
@@ -1015,7 +1019,7 @@ def corpus_txt(path_in):
 
 # Collect posts from Yahoo Groups
 scrape_yahoo = CollectPosts(os.environ['YAHOO_GROUPS_USR'], os.environ['YAHOO_GROUPS_PWD'], os.environ['YAHOO_GROUPS_URL'], id_start=1, id_end=116102, sandbox=False)
-scrape_yahoo.yahoogroups(path_out='D:/Data/corpus_1/html/')
+scrape_yahoo.yahoogroups(path_out='D:/Data/corpus_1/html/', first_year_in_range='2015')
 
 # Collect posts from Groups.IO
 scrape_groupsio = CollectPosts(os.environ['GROUPSIO_USR'], os.environ['GROUPSIO_PWD'], os.environ['GROUPSIO_URL'], id_start=1, id_end=131487, sandbox=False)
@@ -1831,3 +1835,22 @@ plot_wordcloud(cluster_12, freq=True)
 plot_wordcloud(cluster_13, freq=True)
 plot_wordcloud(cluster_14, freq=True)
 plot_wordcloud(cluster_15, freq=True)
+
+
+################################## FUTURE CODE ####################################
+
+###################################### LATENT SEMANTIC ANALYSIS ####################################
+
+from sklearn.decomposition import TruncatedSVD
+lsa = TruncatedSVD(n_components=5, n_iter=100)
+lsa.fit(matrix)
+
+terms = tfidf.get_feature_names()
+
+for i, comp in enumerate(lsa.components_):
+    comp_terms = zip(terms, comp)
+    terms_sorted = sorted(comp_terms, key=lambda x: x[1], reverse=True)[:10]
+    print('Concept', i)
+    for term in terms_sorted:
+        print(term[0])
+    print('-'*40)
